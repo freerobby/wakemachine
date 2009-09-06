@@ -26,6 +26,19 @@ function getTargetHostFromSystemLog {
     fi
 }
 
+# Ping the target host to get its IP.
+function getTargetIPFromHost {
+  target_ip=`ping -c 1 $target_hostname | grep 'PING' | perl -wlne 'print $1 if /\(([\d\.]*)\)/'`
+  if [ -n "$target_ip" ]
+  then
+    return 1
+  else
+    echo "We weren't able to ping your target machine, $target_hostname. If it's sleeping, please"
+    echo "wake it up and try running setup again."
+    return 0
+  fi
+}
+
 # Look at the system log to see if we have an intercept on a given message.
 # $1: The message we're trying to intercept, we're querying for.
 function ReadSystemLogForIntercept {
@@ -44,6 +57,13 @@ getTargetHostFromSystemLog
 if [ $? -eq 1 ]
 then
   echo Target hostname: $target_hostname
+  getTargetIPFromHost
+  if [ $? -eq 1 ]
+  then
+    echo Target IP: $target_ip
+  else
+    exit
+  fi
 else
   exit
 fi
