@@ -9,8 +9,7 @@ readonly SYSLOGSENDER="com.apple.backupd"
 # How often we requery the system log when looking for setup data.
 readonly SYSLOGREQUERYFORSETUP=60
 
-# Query the system log to find the hostname of target. If nothing is found, requery every
-# SYSLOGREQUERYFORSETUP seconds until an entry is logged that satisfies us.
+# Query the system log to find the hostname of target.
 function getTargetHostFromSystemLog {
   target_hostname=`syslog -k Sender com.apple.backupd |
     grep 'Attempting to mount network destination using URL' |
@@ -21,17 +20,8 @@ function getTargetHostFromSystemLog {
       target_hostname="$target_hostname.local"
       return 1
     else
-      echo "No backup host was found in your system log. Don't worry - this just means that it"
-      echo "was cleared recently. We'll grab what we need the next time Time Machine gets invoked."
-      while [ -z "$target_hostname" ]
-      do
-        host=`syslog -k Sender com.apple.backupd |
-          grep 'Attempting to mount network destination using URL' |
-          tail -n 1 |
-          perl -wlne 'print $1 if /@([a-zA-Z\-]*)/'`
-        echo "Waiting for Time Machine to attempt backup so we can see where it puts it."
-        sleep $SYSLOGREQUERYFORSETUP
-      done
+      echo "No backup host was found in your system log. Don't worry - this just means that it was"
+      echo "cleared recently. Please run Time Machine (let it fail) and then run this tool again."
       return 0
     fi
 }
@@ -51,7 +41,12 @@ function ReadSystemLogForIntercept {
 }
 
 getTargetHostFromSystemLog
-echo Target hostname: $target_hostname
+if [ $? -eq 1 ]
+then
+  echo Target hostname: $target_hostname
+else
+  exit
+fi
 
 # Begin daemon
 while true
