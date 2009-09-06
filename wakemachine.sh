@@ -1,15 +1,17 @@
 #!/bin/bash
 
 # How often the daemon loops
-readonly POOLINGINTERVAL=1
+readonly POOLINGINTERVAL=5
 # How far back we look (in seconds) in the system log
-readonly SYSLOGLOOKBACKSECONDS=5
+readonly SYSLOGLOOKBACKSECONDS=8
 # Sending proces that we're concerned with
 readonly SYSLOGSENDER="com.apple.backupd"
 # How often we requery the system log when looking for setup data.
-readonly SYSLOGREQUERYFORSETUP=60
+#readonly SYSLOGREQUERYFORSETUP=60
 # Path to user profile
 readonly PROFILEPATH="$HOME/.profile"
+# Path to WOL script
+readonly WOLSCRIPT="./wakeonlan.pl"
 
 # Query the system log to find the hostname of target.
 function getTargetHostFromSystemLog {
@@ -125,6 +127,7 @@ then
   SaveTargetDataToUserProfile
   echo Done.
 else # Otherwise, run daemon
+  
   # If we don't have the necessary environment variables set, then bail!
   LoadTargetDataFromUserProfile
   if [ $? -eq 0 ]
@@ -139,9 +142,8 @@ else # Otherwise, run daemon
     ReadSystemLogForIntercept "Starting standard backup"
     if [ $? -eq 1 ]
     then
-      echo We have an intercept!
-    else
-      echo No intercept.
+      # We have an intercept - send a magic packet.
+      perl "$WOLSCRIPT" "$WAKEMACHINE_TARGET_MAC"
     fi
     sleep $POOLINGINTERVAL
   done
