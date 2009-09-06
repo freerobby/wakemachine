@@ -8,6 +8,8 @@ readonly SYSLOGLOOKBACKSECONDS=5
 readonly SYSLOGSENDER="com.apple.backupd"
 # How often we requery the system log when looking for setup data.
 readonly SYSLOGREQUERYFORSETUP=60
+# Path to user profile
+readonly PROFILEPATH="$HOME/.profile"
 
 # Query the system log to find the hostname of target.
 function getTargetHostFromSystemLog {
@@ -56,6 +58,19 @@ function getTargetMACFromARPCache {
   fi
 }
 
+# Write our variables to the user profile.
+function SaveTargetDataToUserProfile {
+  echo Writing to "$PROFILEPATH"
+  echo >> "$PROFILEPATH"
+  echo \# Wake Machine configuration, added on `date` >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_HOSTNAME="$target_hostname" >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_IP="$target_ip" >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_MAC="$target_mac" >> "$PROFILEPATH"
+  echo \# End of Wake Machine configuration >> "$PROFILEPATH"
+  echo Reloading profile
+  source "$PROFILEPATH"
+}
+
 # Look at the system log to see if we have an intercept on a given message.
 # $1: The message we're trying to intercept, we're querying for.
 function ReadSystemLogForIntercept {
@@ -74,26 +89,26 @@ function ReadSystemLogForIntercept {
 if [ "$1" == "setup" ]
 then
   getTargetHostFromSystemLog
-  if [ $? -eq 1 ]
+  if [ $? -eq 0 ]
   then
-    echo Target hostname: $target_hostname
-    getTargetIPFromHost
-    if [ $? -eq 1 ]
-    then
-      echo Target IP: $target_ip
-      getTargetMACFromARPCache
-      if [ $? -eq 1 ]
-      then
-        echo Target MAC: $target_mac
-      else
-        exit
-      fi
-    else
-      exit
-    fi
-  else
     exit
   fi
+  echo Target hostname: $target_hostname
+  getTargetIPFromHost
+  if [ $? -eq 0 ]
+  then
+    exit
+  fi
+  echo Target IP: $target_ip
+  getTargetMACFromARPCache
+  if [ $? -eq 0 ]
+  then
+    exit
+  fi
+  echo Target MAC: $target_mac
+  echo Saving data...
+  SaveTargetDataToUserProfile
+  echo Done.
 else
 # Otherwise, run daemon
   # Begin daemon
