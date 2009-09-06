@@ -5,3 +5,5 @@ Wake Machine runs as a mock daemon on the client. When Time Machine initiates a 
 Caveats: If you're using an older Mac, the target machine must be connected via ethernet (the machine you're backing up can still be connected via wifi). New Macs support WOL via Airport.
 
 For more information, visit http://www.freerobby.com/wakemachine
+
+Wake Machine uses Pivotal Tracker to track stories and bugs. You can see the public tracker at http://www.pivotaltracker.com/projects/28564
