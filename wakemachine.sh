@@ -70,18 +70,24 @@ function ReadSystemLogForIntercept {
   fi
 }
 
-getTargetHostFromSystemLog
-if [ $? -eq 1 ]
+# If user invoked setup mode, run setup.
+if [ "$1" == "setup" ]
 then
-  echo Target hostname: $target_hostname
-  getTargetIPFromHost
+  getTargetHostFromSystemLog
   if [ $? -eq 1 ]
   then
-    echo Target IP: $target_ip
-    getTargetMACFromARPCache
+    echo Target hostname: $target_hostname
+    getTargetIPFromHost
     if [ $? -eq 1 ]
     then
-      echo Target MAC: $target_mac
+      echo Target IP: $target_ip
+      getTargetMACFromARPCache
+      if [ $? -eq 1 ]
+      then
+        echo Target MAC: $target_mac
+      else
+        exit
+      fi
     else
       exit
     fi
@@ -89,18 +95,17 @@ then
     exit
   fi
 else
-  exit
+# Otherwise, run daemon
+  # Begin daemon
+  while true
+  do
+    ReadSystemLogForIntercept "Starting standard backup"
+    if [ $? -eq 1 ]
+    then
+      echo We have an intercept!
+    else
+      echo No intercept.
+    fi
+    sleep $POOLINGINTERVAL
+  done
 fi
-
-# Begin daemon
-while true
-do
-  ReadSystemLogForIntercept "Starting standard backup"
-  if [ $? -eq 1 ]
-  then
-    echo We have an intercept!
-  else
-    echo No intercept.
-  fi
-  sleep $POOLINGINTERVAL
-done
