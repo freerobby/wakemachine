@@ -13,13 +13,13 @@ readonly PROFILEPATH="$HOME/.profile"
 
 # Query the system log to find the hostname of target.
 function getTargetHostFromSystemLog {
-  target_hostname=`syslog -k Sender com.apple.backupd |
+  export WAKEMACHINE_TARGET_HOSTNAME=`syslog -k Sender com.apple.backupd |
     grep 'Attempting to mount network destination using URL' |
     tail -n 1 |
     perl -wlne 'print $1 if /@([a-zA-Z\-]*)/'`
-    if [ -n "$target_hostname" ]
+    if [ -n "$WAKEMACHINE_TARGET_HOSTNAME" ]
     then
-      target_hostname="$target_hostname.local"
+      WAKEMACHINE_TARGET_HOSTNAME="$WAKEMACHINE_TARGET_HOSTNAME.local"
       return 1
     else
       echo "No backup host was found in your system log. Don't worry - this just means that it was"
@@ -30,14 +30,14 @@ function getTargetHostFromSystemLog {
 
 # Ping the target host to get its IP.
 function getTargetIPFromHost {
-  target_ip=`ping -c 1 $target_hostname |
+  export WAKEMACHINE_TARGET_IP=`ping -c 1 $WAKEMACHINE_TARGET_HOSTNAME |
     grep 'PING' |
     perl -wlne 'print $1 if /\(([\d\.]*)\)/'`
-  if [ -n "$target_ip" ]
+  if [ -n "$WAKEMACHINE_TARGET_IP" ]
   then
     return 1
   else
-    echo "We weren't able to ping your target machine, $target_hostname. If it's sleeping, please"
+    echo "We weren't able to ping your target machine, $WAKEMACHINE_TARGET_HOSTNAME. If it's sleeping, please"
     echo "wake it up and try running setup again."
     return 0
   fi
@@ -45,10 +45,10 @@ function getTargetIPFromHost {
 
 # Query the address resolution protocoal cache from our recent ping to find the MAC address of our target.
 function getTargetMACFromARPCache {
-  target_mac=`arp -a |
-    grep $target_ip |
+  export WAKEMACHINE_TARGET_MAC=`arp -a |
+    grep $WAKEMACHINE_TARGET_IP |
     perl -wlne 'print $1 if /at\ (.*)\ on\ /'`
-  if [ -n "$target_mac" ]
+  if [ -n "$WAKEMACHINE_TARGET_MAC" ]
   then
     return 1
   else
@@ -63,12 +63,27 @@ function SaveTargetDataToUserProfile {
   echo Writing to "$PROFILEPATH"
   echo >> "$PROFILEPATH"
   echo \# Wake Machine configuration, added on `date` >> "$PROFILEPATH"
-  echo export WAKEMACHINE_TARGET_HOSTNAME="$target_hostname" >> "$PROFILEPATH"
-  echo export WAKEMACHINE_TARGET_IP="$target_ip" >> "$PROFILEPATH"
-  echo export WAKEMACHINE_TARGET_MAC="$target_mac" >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_HOSTNAME="$WAKEMACHINE_TARGET_HOSTNAME" >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_IP="$WAKEMACHINE_TARGET_IP" >> "$PROFILEPATH"
+  echo export WAKEMACHINE_TARGET_MAC="$WAKEMACHINE_TARGET_MAC" >> "$PROFILEPATH"
   echo \# End of Wake Machine configuration >> "$PROFILEPATH"
-  echo Reloading profile
-  source "$PROFILEPATH"
+}
+
+# Load the variables from the environment
+function LoadTargetDataFromUserProfile {
+  if [ -z "$WAKEMACHINE_TARGET_HOSTNAME" ]
+  then
+    return 0
+  fi
+  if [ -z "$WAKEMACHINE_TARGET_IP" ]
+  then
+    return 0
+  fi
+  if [ -z "$WAKEMACHINE_TARGET_MAC" ]
+  then
+    return 0
+  fi
+  return 1
 }
 
 # Look at the system log to see if we have an intercept on a given message.
@@ -93,25 +108,32 @@ then
   then
     exit
   fi
-  echo Target hostname: $target_hostname
+  echo Target hostname: $WAKEMACHINE_TARGET_HOSTNAME
   getTargetIPFromHost
   if [ $? -eq 0 ]
   then
     exit
   fi
-  echo Target IP: $target_ip
+  echo Target IP: $WAKEMACHINE_TARGET_IP
   getTargetMACFromARPCache
   if [ $? -eq 0 ]
   then
     exit
   fi
-  echo Target MAC: $target_mac
+  echo Target MAC: $WAKEMACHINE_TARGET_MAC
   echo Saving data...
   SaveTargetDataToUserProfile
   echo Done.
-else
-# Otherwise, run daemon
-  # Begin daemon
+else # Otherwise, run daemon
+  # If we don't have the necessary environment variables set, then bail!
+  LoadTargetDataFromUserProfile
+  if [ $? -eq 0 ]
+  then
+    echo "Sorry, couldn't find config. Did you run setup?"
+    exit
+  fi
+  
+  # Otherwise, begin the daemon
   while true
   do
     ReadSystemLogForIntercept "Starting standard backup"
