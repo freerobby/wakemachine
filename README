@@ -1,0 +1,7 @@
+Wake Machine enables Time Machine to backup to a target that is sleeping. Without Wake Machine, such backups will fail because the remote disk cannot be mounted while the target machine is sleeping.
+
+Wake Machine runs as a mock daemon on the client. When Time Machine initiates a backup, Wake Machine sends a magic packet to the target machine to wake it up if it's sleeping.
+
+Caveats: If you're using an older Mac, the target machine must be connected via ethernet (the machine you're backing up can still be connected via wifi). New Macs support WOL via Airport.
+
+For more information, visit http://www.freerobby.com/wakemachine
