@@ -28,13 +28,30 @@ function getTargetHostFromSystemLog {
 
 # Ping the target host to get its IP.
 function getTargetIPFromHost {
-  target_ip=`ping -c 1 $target_hostname | grep 'PING' | perl -wlne 'print $1 if /\(([\d\.]*)\)/'`
+  target_ip=`ping -c 1 $target_hostname |
+    grep 'PING' |
+    perl -wlne 'print $1 if /\(([\d\.]*)\)/'`
   if [ -n "$target_ip" ]
   then
     return 1
   else
     echo "We weren't able to ping your target machine, $target_hostname. If it's sleeping, please"
     echo "wake it up and try running setup again."
+    return 0
+  fi
+}
+
+# Query the address resolution protocoal cache from our recent ping to find the MAC address of our target.
+function getTargetMACFromARPCache {
+  target_mac=`arp -a |
+    grep $target_ip |
+    perl -wlne 'print $1 if /at\ (.*)\ on\ /'`
+  if [ -n "$target_mac" ]
+  then
+    return 1
+  else
+    echo "We weren't able to get your target's MAC address from the ARP cache. You may need to"
+    echo "specify it manually in your hostdata file."
     return 0
   fi
 }
@@ -61,6 +78,13 @@ then
   if [ $? -eq 1 ]
   then
     echo Target IP: $target_ip
+    getTargetMACFromARPCache
+    if [ $? -eq 1 ]
+    then
+      echo Target MAC: $target_mac
+    else
+      exit
+    fi
   else
     exit
   fi
